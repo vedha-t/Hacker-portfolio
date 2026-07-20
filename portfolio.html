@@ -1,0 +1,649 @@
+Here's the full code:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VENGADALAKSHMI // root@portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Bebas+Neue&family=Oxanium:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black: #060807;
+    --panel: #0b0f0d;
+    --panel-2: #0e1512;
+    --line: #14261c;
+    --green: #39ff88;
+    --green-dim: #1c7a45;
+    --cyan: #4deeff;
+    --amber: #ffb347;
+    --red: #ff5f5f;
+    --text: #cdeedd;
+    --text-dim: #6c8b7a;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Bebas Neue', sans-serif;
+    --ox: 'Oxanium', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--black);
+    color:var(--text);
+    font-family:var(--mono);
+    overflow-x:hidden;
+    cursor: default;
+  }
+  ::selection{ background:var(--green); color:#000; }
+  ::-webkit-scrollbar{width:10px;}
+  ::-webkit-scrollbar-track{background:var(--black);}
+  ::-webkit-scrollbar-thumb{background:var(--green-dim); border:2px solid var(--black);}
+
+  /* ---------- scanline / crt overlay ---------- */
+  .crt{
+    position:fixed; inset:0; pointer-events:none; z-index:9999;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.18) 3px
+    );
+    mix-blend-mode:multiply;
+    opacity:0.5;
+  }
+  .vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:9998;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%);
+  }
+
+  /* ---------- BIOS BOOT ---------- */
+  #bios{
+    position:fixed; inset:0; background:#000; color:#9fffb0;
+    z-index:10000; font-family:var(--mono); font-size:14px;
+    padding: 30px 40px; line-height:1.65;
+    display:flex; flex-direction:column;
+  }
+  #bios .bios-line{ opacity:0; white-space:pre-wrap; }
+  #bios .bios-line.show{ opacity:1; }
+  #bios .ok{ color:var(--green); }
+  #bios .warn{ color:var(--amber); }
+  #bios-bottom{ margin-top:auto; font-size:12px; color:#4a7a5c; }
+  #bios-bar{ width:100%; height:6px; background:#0a1a10; margin-top:14px; border:1px solid var(--green-dim); }
+  #bios-bar-fill{ height:100%; width:0%; background:var(--green); box-shadow:0 0 8px var(--green); transition:width 0.2s linear; }
+  #bios.hide{ animation: biosOut 0.5s forwards; }
+  @keyframes biosOut{ to{ opacity:0; visibility:hidden; } }
+
+  /* ---------- NAVBAR ---------- */
+  header{
+    position:fixed; top:0; left:0; right:0; z-index:500;
+    background:rgba(6,8,7,0.85); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 26px;
+    font-family:var(--ox);
+  }
+  .nav-left{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:1px; color:var(--green); }
+  .nav-left .dot{ width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  nav ul{ list-style:none; display:flex; gap:22px; }
+  nav a{
+    color:var(--text-dim); text-decoration:none; font-size:13px; font-weight:600;
+    letter-spacing:0.5px; position:relative; padding:4px 2px; transition:color .2s;
+  }
+  nav a::before{ content:'./'; color:var(--green-dim); }
+  nav a:hover{ color:var(--cyan); }
+  .nav-right{ display:flex; align-items:center; gap:16px; font-size:12px; color:var(--amber); }
+  #clock{ letter-spacing:1px; }
+  .menu-toggle{ display:none; color:var(--green); background:none; border:1px solid var(--green-dim); font-family:var(--mono); padding:5px 10px; cursor:pointer;}
+
+  @media (max-width:820px){
+    nav{ position:fixed; top:52px; left:0; right:0; background:var(--panel); border-bottom:1px solid var(--line); flex-direction:column; display:none; padding:10px 0;}
+    nav.open{ display:flex; }
+    nav ul{ flex-direction:column; align-items:flex-start; padding:10px 26px; gap:14px; }
+    .menu-toggle{ display:block; }
+  }
+
+  main{ padding-top:60px; }
+  section{ padding:90px 8vw; position:relative; }
+  .section-tag{
+    font-family:var(--mono); color:var(--green); font-size:12px; letter-spacing:3px;
+    text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:8px;
+  }
+  .section-tag::before{ content:'>'; color:var(--amber); }
+  .section-title{
+    font-family:var(--display); font-size:clamp(32px,5vw,58px); letter-spacing:2px;
+    color:var(--text); margin-bottom:36px; text-transform:uppercase;
+  }
+  .section-title span{ color:var(--cyan); }
+
+  /* ---------- HERO ---------- */
+  #hero{
+    min-height:92vh; display:flex; flex-direction:column; justify-content:center;
+    padding-top:120px; position:relative;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(57,255,136,0.06), transparent 40%),
+      radial-gradient(circle at 85% 70%, rgba(77,238,255,0.06), transparent 40%);
+  }
+  .hero-tag{ font-family:var(--mono); color:var(--amber); font-size:13px; letter-spacing:3px; margin-bottom:18px; }
+  .hero-tag::before{ content:'root@pattukkottai:~$ '; color:var(--text-dim); }
+  .glitch-wrap{ position:relative; }
+  .glitch{
+    font-family:var(--display); font-size:clamp(48px,10vw,130px); line-height:0.95;
+    letter-spacing:2px; color:var(--text); text-transform:uppercase; position:relative;
+  }
+  .glitch::before, .glitch::after{
+    content: attr(data-text); position:absolute; left:0; top:0; width:100%; height:100%;
+    background:var(--black); overflow:hidden;
+  }
+  .glitch::before{ color:var(--cyan); left:3px; clip-path: inset(0 0 55% 0); animation:glitchTop 3.5s infinite linear alternate-reverse; }
+  .glitch::after{ color:var(--red); left:-3px; clip-path: inset(55% 0 0 0); animation:glitchBottom 3.2s infinite linear alternate-reverse; }
+  @keyframes glitchTop{
+    0%{ transform:translate(0,0); } 20%{ transform:translate(-2px,-1px); } 40%{ transform:translate(2px,1px);}
+    60%{ transform:translate(-1px,0);} 80%{ transform:translate(3px,-2px);} 100%{ transform:translate(0,0);}
+  }
+  @keyframes glitchBottom{
+    0%{ transform:translate(0,0); } 25%{ transform:translate(2px,1px); } 50%{ transform:translate(-3px,-1px);}
+    75%{ transform:translate(1px,2px);} 100%{ transform:translate(0,0);}
+  }
+  .hero-sub{ font-family:var(--ox); color:var(--text-dim); font-size:clamp(14px,2vw,19px); max-width:600px; margin-top:22px; line-height:1.6; }
+  .hero-sub b{ color:var(--green); font-weight:600; }
+
+  .terminal{
+    margin-top:38px; max-width:640px; background:var(--panel);
+    border:1px solid var(--line); border-radius:6px; overflow:hidden;
+    box-shadow:0 0 30px rgba(57,255,136,0.05), inset 0 0 40px rgba(0,0,0,0.4);
+  }
+  .terminal-bar{
+    display:flex; align-items:center; gap:8px; padding:9px 14px; background:var(--panel-2);
+    border-bottom:1px solid var(--line);
+  }
+  .terminal-bar span{ width:11px; height:11px; border-radius:50%; display:inline-block; }
+  .tb-red{ background:#ff5f56; } .tb-amber{ background:#ffbd2e; } .tb-green{ background:#27c93f; }
+  .terminal-bar-title{ margin-left:auto; font-size:11px; color:var(--text-dim); }
+  .terminal-body{ padding:16px 18px; font-size:13.5px; min-height:120px; line-height:1.8; }
+  .terminal-body .prompt{ color:var(--green); }
+  .terminal-body .path{ color:var(--cyan); }
+  #typed-line{ color:var(--text); }
+  .cursor-blink{ display:inline-block; width:8px; background:var(--green); animation:blink 1s step-end infinite; margin-left:2px; }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .hero-cta{ display:flex; gap:16px; margin-top:34px; flex-wrap:wrap; }
+  .btn{
+    font-family:var(--ox); font-weight:700; font-size:13px; letter-spacing:1px; text-transform:uppercase;
+    padding:13px 26px; border-radius:3px; text-decoration:none; cursor:pointer; transition:all .2s;
+    border:1px solid var(--green); color:var(--green); background:transparent;
+  }
+  .btn:hover{ background:var(--green); color:#03130a; box-shadow:0 0 22px rgba(57,255,136,0.5); }
+  .btn.alt{ border-color:var(--cyan); color:var(--cyan); }
+  .btn.alt:hover{ background:var(--cyan); color:#031014; box-shadow:0 0 22px rgba(77,238,255,0.5); }
+
+  .scroll-hint{ position:absolute; bottom:26px; left:8vw; font-size:11px; color:var(--text-dim); letter-spacing:2px; }
+
+  /* ---------- SKILLS ---------- */
+  .skills-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+  .skill-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;
+    position:relative; overflow:hidden; transition:transform .2s, border-color .2s;
+  }
+  .skill-card:hover{ transform:translateY(-4px); border-color:var(--green-dim); }
+  .skill-card::before{
+    content:''; position:absolute; top:0; left:0; width:100%; height:2px;
+    background:linear-gradient(90deg,var(--green),var(--cyan)); transform:scaleX(0); transform-origin:left;
+    transition:transform .3s;
+  }
+  .skill-card:hover::before{ transform:scaleX(1); }
+  .skill-icon{ font-family:var(--display); font-size:26px; color:var(--amber); letter-spacing:1px; }
+  .skill-name{ font-family:var(--ox); font-weight:700; font-size:15px; margin-top:8px; color:var(--text); }
+  .skill-tag{ font-size:11px; color:var(--text-dim); margin-top:4px; }
+  .skill-bar{ height:4px; background:var(--line); margin-top:12px; border-radius:2px; overflow:hidden; }
+  .skill-bar-fill{ height:100%; background:linear-gradient(90deg,var(--green-dim),var(--green)); width:0%; transition:width 1.4s ease; }
+
+  /* ---------- TIMELINE ---------- */
+  .timeline{ position:relative; padding-left:34px; border-left:2px solid var(--line); }
+  .tl-item{ position:relative; padding-bottom:44px; }
+  .tl-item:last-child{ padding-bottom:0; }
+  .tl-item::before{
+    content:''; position:absolute; left:-42px; top:2px; width:14px; height:14px; border-radius:50%;
+    background:var(--black); border:2px solid var(--green); box-shadow:0 0 10px var(--green);
+  }
+  .tl-date{ font-size:12px; color:var(--amber); letter-spacing:1px; margin-bottom:6px; }
+  .tl-title{ font-family:var(--ox); font-weight:700; font-size:18px; color:var(--text); }
+  .tl-org{ font-size:13px; color:var(--cyan); margin:3px 0 8px; }
+  .tl-desc{ font-size:13.5px; color:var(--text-dim); line-height:1.7; max-width:600px; }
+
+  /* ---------- PROJECTS ---------- */
+  .projects-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px; }
+  .project-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:24px;
+    position:relative; transition:.25s; overflow:hidden;
+  }
+  .project-card:hover{ border-color:var(--cyan); box-shadow:0 0 24px rgba(77,238,255,0.12); transform:translateY(-3px);}
+  .project-index{ font-family:var(--mono); font-size:11px; color:var(--text-dim); letter-spacing:2px; }
+  .project-title{ font-family:var(--ox); font-weight:800; font-size:19px; color:var(--text); margin:10px 0 10px; }
+  .project-desc{ font-size:13px; color:var(--text-dim); line-height:1.65; margin-bottom:16px; }
+  .project-tags{ display:flex; flex-wrap:wrap; gap:8px; }
+  .ptag{ font-size:10.5px; padding:4px 9px; border:1px solid var(--green-dim); color:var(--green); border-radius:20px; letter-spacing:0.5px; }
+  .status-dot{ position:absolute; top:24px; right:24px; display:flex; align-items:center; gap:6px; font-size:10px; color:var(--green); }
+  .status-dot i{ width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }
+
+  /* ---------- CONTACT ---------- */
+  #contact-terminal{
+    max-width:720px; background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden;
+    box-shadow:0 0 40px rgba(57,255,136,0.06);
+  }
+  #contact-output{ padding:18px; min-height:260px; max-height:360px; overflow-y:auto; font-size:13.5px; line-height:1.85; }
+  #contact-output div{ margin-bottom:4px; word-break:break-word; }
+  .co-user{ color:var(--cyan); }
+  .co-sys{ color:var(--text-dim); }
+  .co-ok{ color:var(--green); }
+  .co-err{ color:var(--red); }
+  .input-row{ display:flex; align-items:center; border-top:1px solid var(--line); padding:12px 16px; background:var(--panel-2); }
+  .input-row .prompt{ color:var(--green); margin-right:8px; white-space:nowrap; }
+  #cmd-input{
+    flex:1; background:transparent; border:none; outline:none; color:var(--text);
+    font-family:var(--mono); font-size:13.5px;
+  }
+  .help-line{ color:var(--text-dim); font-size:12px; margin-top:14px; }
+  .help-line b{ color:var(--amber); }
+
+  .contact-links{ display:flex; gap:18px; margin-top:26px; flex-wrap:wrap; }
+  .contact-links a{ color:var(--text-dim); text-decoration:none; font-size:13px; border:1px solid var(--line); padding:9px 16px; border-radius:4px; transition:.2s; }
+  .contact-links a:hover{ color:var(--green); border-color:var(--green-dim); }
+
+  footer{ text-align:center; padding:30px; font-size:11px; color:var(--text-dim); border-top:1px solid var(--line); letter-spacing:1px; }
+  footer span{ color:var(--green); }
+
+  @media(max-width:600px){
+    section{ padding:70px 6vw; }
+    .terminal{ max-width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="crt"></div>
+<div class="vignette"></div>
+
+<!-- BIOS BOOT SCREEN -->
+<div id="bios">
+  <div id="bios-lines"></div>
+  <div id="bios-bottom">
+    <div>Press any key to interrupt boot sequence...</div>
+    <div id="bios-bar"><div id="bios-bar-fill"></div></div>
+  </div>
+</div>
+
+<header>
+  <div class="nav-left"><div class="dot"></div> VENGADALAKSHMI.SYS</div>
+  <button class="menu-toggle" id="menuToggle">MENU</button>
+  <nav id="navMenu">
+    <ul>
+      <li><a href="#hero">home</a></li>
+      <li><a href="#skills">skills</a></li>
+      <li><a href="#experience">experience</a></li>
+      <li><a href="#projects">projects</a></li>
+      <li><a href="#contact">contact</a></li>
+    </ul>
+  </nav>
+  <div class="nav-right">
+    <span>STATUS: <b style="color:var(--green)">ONLINE</b></span>
+    <span id="clock">00:00:00</span>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-tag">whoami</div>
+    <div class="glitch-wrap">
+      <h1 class="glitch" data-text="VENGADALAKSHMI">VENGADALAKSHMI</h1>
+    </div>
+    <p class="hero-sub">Final-year <b>B.E. Computer Science &amp; Engineering</b> student at University College of Engineering, Pattukkottai (Anna University) — CGPA <b>8.5</b>. Building in web development, AI applications, and cloud computing. Based in Aranthangi, Tamil Nadu.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="tb-red"></span><span class="tb-amber"></span><span class="tb-green"></span>
+        <div class="terminal-bar-title">bash — 80x10</div>
+      </div>
+      <div class="terminal-body">
+        <div><span class="prompt">guest@portfolio</span>:<span class="path">~</span>$ <span id="typed-line"></span><span class="cursor-blink">&nbsp;</span></div>
+      </div>
+    </div>
+
+    <div class="hero-cta">
+      <a href="#projects" class="btn">./view_projects</a>
+      <a href="#contact" class="btn alt">./contact_me</a>
+    </div>
+    <div class="scroll-hint">scroll to explore ↓</div>
+  </section>
+
+  <!-- SKILLS -->
+  <section id="skills">
+    <div class="section-tag">module 01</div>
+    <h2 class="section-title">CORE <span>SKILLS</span></h2>
+    <div class="skills-grid" id="skillsGrid">
+      <!-- injected -->
+    </div>
+  </section>
+
+  <!-- EXPERIENCE / TIMELINE -->
+  <section id="experience">
+    <div class="section-tag">module 02</div>
+    <h2 class="section-title">EXPERIENCE <span>LOG</span></h2>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-date">2023 — 2027</div>
+        <div class="tl-title">B.E. Computer Science &amp; Engineering</div>
+        <div class="tl-org">University College of Engineering, Pattukkottai · Anna University</div>
+        <div class="tl-desc">Pursuing a Bachelor's degree with a current CGPA of 8.5, focused on programming, web development, and problem-solving.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-date">15-Day Internship</div>
+        <div class="tl-title">Cloud Computing &amp; AWS Intern</div>
+        <div class="tl-org">Eagle HiTech Softcloud Private Limited, Chennai</div>
+        <div class="tl-desc">Completed industrial training in cloud computing, gaining hands-on experience with AWS fundamentals and core cloud services.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-date">Training Program</div>
+        <div class="tl-title">Full Stack Development</div>
+        <div class="tl-org">Training Program</div>
+        <div class="tl-desc">Completed full stack development training covering front-end and back-end fundamentals.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-date">2022 — 2023</div>
+        <div class="tl-title">Higher Secondary Certificate (HSC)</div>
+        <div class="tl-org">Manickavasakar Higher Secondary School</div>
+        <div class="tl-desc">Completed HSC with 88.20%.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-date">2020 — 2021</div>
+        <div class="tl-title">SSLC</div>
+        <div class="tl-org">Manickavasakar Higher Secondary School</div>
+        <div class="tl-desc">Completed secondary schooling.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROJECTS -->
+  <section id="projects">
+    <div class="section-tag">module 03</div>
+    <h2 class="section-title">PROJECT <span>ARCHIVE</span></h2>
+    <div class="projects-grid" id="projectsGrid"></div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact">
+    <div class="section-tag">module 04</div>
+    <h2 class="section-title">ESTABLISH <span>CONNECTION</span></h2>
+
+    <div id="contact-terminal">
+      <div class="terminal-bar">
+        <span class="tb-red"></span><span class="tb-amber"></span><span class="tb-green"></span>
+        <div class="terminal-bar-title">contact_shell</div>
+      </div>
+      <div id="contact-output">
+        <div class="co-sys">Connected to VENGADALAKSHMI.SYS contact shell.</div>
+        <div class="co-sys">Type <b style="color:var(--amber)">help</b> to see available commands.</div>
+      </div>
+      <div class="input-row">
+        <span class="prompt">$</span>
+        <input type="text" id="cmd-input" autocomplete="off" placeholder="type a command..." />
+      </div>
+    </div>
+    <div class="help-line">Try: <b>help</b>, <b>email</b>, <b>phone</b>, <b>location</b>, <b>skills</b>, <b>clear</b></div>
+
+    <div class="contact-links">
+      <a href="mailto:lvedhathej@gmail.com">✉ lvedhathej@gmail.com</a>
+      <a href="tel:+917305829428">☎ +91 73058 29428</a>
+      <a href="#">📍 Aranthangi, Tamil Nadu</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>[root@vengadalakshmi]#</span> end of transmission. built with terminal precision.
+</footer>
+
+<script>
+/* ============ BIOS BOOT SEQUENCE ============ */
+(function(){
+  const lines = [
+    ["AwardBIOS (C) Personal Systems — PATTUKKOTTAI-CSE v2.7", false],
+    ["CPU: Human Learning Unit @ 8.5 CGPA", false],
+    ["Detecting memory............ 16384MB OK", true],
+    ["Detecting skills.bin......... FOUND", true],
+    ["Detecting projects.arc....... FOUND", true],
+    ["Detecting resume.pdf......... FOUND", true],
+    ["Initializing curiosity module... OK", true],
+    ["Loading AWS cloud drivers.... OK", true],
+    ["Loading AI/Speech modules.... OK", true],
+    ["Mounting /home/vengadalakshmi ... OK", true],
+    ["Starting portfolio.exe", false],
+  ];
+  const container = document.getElementById('bios-lines');
+  const fill = document.getElementById('bios-bar-fill');
+  let i = 0;
+  function addLine(){
+    if(i >= lines.length){
+      fill.style.width = '100%';
+      setTimeout(()=>{
+        document.getElementById('bios').classList.add('hide');
+        setTimeout(()=> document.getElementById('bios').style.display='none', 550);
+      }, 350);
+      return;
+    }
+    const [text, ok] = lines[i];
+    const div = document.createElement('div');
+    div.className = 'bios-line';
+    div.innerHTML = ok ? text.replace('OK', '<span class="ok">OK</span>').replace('FOUND','<span class="ok">FOUND</span>') : text;
+    container.appendChild(div);
+    requestAnimationFrame(()=> div.classList.add('show'));
+    fill.style.width = Math.round(((i+1)/lines.length)*100) + '%';
+    i++;
+    setTimeout(addLine, 220 + Math.random()*160);
+  }
+  addLine();
+
+  // allow skip
+  function skip(){
+    document.getElementById('bios').classList.add('hide');
+    setTimeout(()=> document.getElementById('bios').style.display='none', 550);
+  }
+  window.addEventListener('keydown', skip, {once:true});
+  window.addEventListener('click', skip, {once:true});
+})();
+
+/* ============ LIVE CLOCK ============ */
+function updateClock(){
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ============ MOBILE NAV ============ */
+document.getElementById('menuToggle').addEventListener('click', ()=>{
+  document.getElementById('navMenu').classList.toggle('open');
+});
+document.querySelectorAll('#navMenu a').forEach(a=>{
+  a.addEventListener('click', ()=> document.getElementById('navMenu').classList.remove('open'));
+});
+
+/* ============ HERO TYPING TERMINAL ============ */
+(function(){
+  const phrases = [
+    "initializing career_launch.sh ...",
+    "student.role = 'Final Year CSE @ Anna University'",
+    "print('open to opportunities in web dev & AI')",
+    "sudo hire --candidate=vengadalakshmi --confidence=high"
+  ];
+  const el = document.getElementById('typed-line');
+  let p = 0, c = 0, deleting = false;
+
+  function tick(){
+    const current = phrases[p];
+    if(!deleting){
+      c++;
+      el.textContent = current.slice(0, c);
+      if(c === current.length){
+        deleting = true;
+        setTimeout(tick, 1400);
+        return;
+      }
+    } else {
+      c--;
+      el.textContent = current.slice(0, c);
+      if(c === 0){
+        deleting = false;
+        p = (p+1) % phrases.length;
+      }
+    }
+    setTimeout(tick, deleting ? 28 : 45);
+  }
+  tick();
+})();
+
+/* ============ SKILLS DATA + RENDER ============ */
+const skills = [
+  {name:"Problem Solving", tag:"analytical / logic", icon:"01", level:92},
+  {name:"Web Development", tag:"full stack basics", icon:"02", level:80},
+  {name:"AI Application Building", tag:"Google AI Studio", icon:"03", level:78},
+  {name:"Cloud Computing (AWS)", tag:"fundamentals", icon:"04", level:75},
+  {name:"Communication", tag:"soft skill", icon:"05", level:88},
+  {name:"Teamwork & Collaboration", tag:"soft skill", icon:"06", level:90},
+  {name:"Adaptability", tag:"soft skill", icon:"07", level:88},
+  {name:"Time Management", tag:"soft skill", icon:"08", level:85},
+  {name:"Quick Learning", tag:"soft skill", icon:"09", level:90},
+];
+
+const grid = document.getElementById('skillsGrid');
+skills.forEach(s=>{
+  const card = document.createElement('div');
+  card.className = 'skill-card';
+  card.innerHTML = `
+    <div class="skill-icon">${s.icon}</div>
+    <div class="skill-name">${s.name}</div>
+    <div class="skill-tag">${s.tag}</div>
+    <div class="skill-bar"><div class="skill-bar-fill" data-level="${s.level}"></div></div>
+  `;
+  grid.appendChild(card);
+});
+
+/* animate skill bars on scroll into view */
+const barObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const fill = entry.target.querySelector('.skill-bar-fill');
+      if(fill) fill.style.width = fill.dataset.level + '%';
+      barObserver.unobserve(entry.target);
+    }
+  });
+}, {threshold:0.3});
+document.querySelectorAll('.skill-card').forEach(c=> barObserver.observe(c));
+
+/* ============ PROJECTS DATA + RENDER ============ */
+const projects = [
+  {
+    title:"Personal Portfolio Website",
+    desc:"Developed a responsive portfolio website with a modern UI to showcase profile, skills, and work.",
+    tags:["HTML","CSS","Responsive"],
+  },
+  {
+    title:"Responsive Login Page",
+    desc:"Created a responsive login interface with client-side form validation and clean UX.",
+    tags:["HTML","CSS","JavaScript"],
+  },
+  {
+    title:"AI-Powered Multilingual Speech App",
+    desc:"Built an AI-powered multilingual speech solution enabling voice interaction across languages.",
+    tags:["AI","Speech","Multilingual"],
+  },
+  {
+    title:"Build & Deploy AI Applications",
+    desc:"Developed AI applications using prompt engineering techniques with Google AI Studio.",
+    tags:["Prompt Engineering","Google AI Studio"],
+  },
+];
+
+const pGrid = document.getElementById('projectsGrid');
+projects.forEach((p,idx)=>{
+  const card = document.createElement('div');
+  card.className = 'project-card';
+  card.innerHTML = `
+    <div class="status-dot"><i></i>ACTIVE</div>
+    <div class="project-index">PROJ_${String(idx+1).padStart(2,'0')}</div>
+    <div class="project-title">${p.title}</div>
+    <div class="project-desc">${p.desc}</div>
+    <div class="project-tags">${p.tags.map(t=>`<span class="ptag">${t}</span>`).join('')}</div>
+  `;
+  pGrid.appendChild(card);
+});
+
+/* ============ CONTACT TERMINAL ============ */
+(function(){
+  const input = document.getElementById('cmd-input');
+  const output = document.getElementById('contact-output');
+
+  const responses = {
+    help: "available commands: help, email, phone, location, skills, education, whoami, clear",
+    email: "lvedhathej@gmail.com",
+    phone: "+91 73058 29428",
+    location: "Aranthangi, Tamil Nadu, India",
+    skills: skills.map(s=>s.name).join(', '),
+    education: "B.E. CSE @ University College of Engineering, Pattukkottai (Anna University) — CGPA 8.5",
+    whoami: "Final-year CSE student. Web dev, AI applications, cloud computing enthusiast.",
+  };
+
+  function print(text, cls){
+    const div = document.createElement('div');
+    if(cls) div.className = cls;
+    div.textContent = text;
+    output.appendChild(div);
+    output.scrollTop = output.scrollHeight;
+  }
+
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      const raw = input.value.trim();
+      if(raw.length === 0) return;
+      print('$ ' + raw, 'co-user');
+      const cmd = raw.toLowerCase();
+
+      if(cmd === 'clear'){
+        output.innerHTML = '';
+      } else if(cmd in responses){
+        print(responses[cmd], 'co-ok');
+      } else {
+        print(`command not found: ${raw} — type 'help' for options`, 'co-err');
+      }
+      input.value = '';
+    }
+  });
+
+  input.addEventListener('blur', ()=> setTimeout(()=> input.focus(), 50));
+})();
+
+/* ============ NAVBAR ACTIVE STATE ON SCROLL ============ */
+const sections = document.querySelectorAll('main section');
+const navLinks = document.querySelectorAll('nav a');
+const navObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const id = entry.target.getAttribute('id');
+      navLinks.forEach(a=>{
+        a.style.color = a.getAttribute('href') === '#'+id ? 'var(--green)' : '';
+      });
+    }
+  });
+}, {threshold:0.4});
+sections.forEach(s=> navObserver.observe(s));
+</script>
+
+</body>
+</html>
+```
